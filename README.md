@@ -53,7 +53,7 @@ fn main() {
 
 - Stage 1 — Dual number struct ✅ Done
 - Stage 2 — Operator overloading ✅ Done
-- Stage 3 — Math functions (sin, cos, exp, log, powf) ✔ Done
+- Stage 3 — Math functions (sin, cos, exp, log, powf) ✅ Done
 - Stage 4 — Gradient computation
 - Stage 5 — Jacobian computation
 - Stage 6 — CostFunction trait (Ceres‑style API)
