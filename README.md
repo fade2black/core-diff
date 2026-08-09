@@ -28,7 +28,8 @@ symbolic manipulation and zero numerical approximation.
 - Value + gradient propagation
 - Full operator overloading (`+`, `-`, `*`, `/`, and unary `-`)
 - Correct derivative rules (product, quotient, chain)
-- Zero dependencies
+- Jacobian computation for fixed-size residual blocks (`core_diff::jacobian::jacobian`),
+  backed by `nalgebra`'s const-generic `SMatrix`/`SVector` (still stack-allocated, no heap)
 - Clean, modular architecture
 - Extensible toward Jacobians and optimization (see Roadmap)
 
@@ -64,6 +65,6 @@ fn main() {
 - Stage 2 — Operator overloading ✅ Done
 - Stage 3 — Math functions (sin, cos, exp, log, powf) ✅ Done
 - Stage 4 — Gradient computation ✅ Done
-- Stage 5 — Jacobian computation
+- Stage 5 — Jacobian computation ✅ Done
 - Stage 6 — CostFunction trait (Ceres‑style API)
 - Stage 7 — Optional nonlinear solver

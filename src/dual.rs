@@ -155,6 +155,33 @@ impl<const N: usize> Dual<f64, N> {
     }
 }
 
+/// Free-function form of `Dual::sin`, so expressions like `sin(x * y)` resolve
+/// without needing a macro to rewrite them into method calls.
+#[inline]
+pub fn sin<const N: usize>(d: Dual<f64, N>) -> Dual<f64, N> {
+    d.sin()
+}
+
+#[inline]
+pub fn cos<const N: usize>(d: Dual<f64, N>) -> Dual<f64, N> {
+    d.cos()
+}
+
+#[inline]
+pub fn exp<const N: usize>(d: Dual<f64, N>) -> Dual<f64, N> {
+    d.exp()
+}
+
+#[inline]
+pub fn ln<const N: usize>(d: Dual<f64, N>) -> Dual<f64, N> {
+    d.ln()
+}
+
+#[inline]
+pub fn powf<const N: usize>(d: Dual<f64, N>, n: f64) -> Dual<f64, N> {
+    d.powf(n)
+}
+
 #[cfg(test)]
 mod tests {
     use super::Dual;
