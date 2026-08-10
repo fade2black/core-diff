@@ -13,6 +13,14 @@ pub fn jacobian<const N: usize, const M: usize>(
     (value, jac)
 }
 
+macro_rules! seed {
+    ($($name:ident = $val:expr),*) => {
+        const __N: usize = [ $(stringify!($name)),* ].len();
+        let __vals = [ $($val),* ];
+        let [ $($name),* ]: [Dual<f64, __N>; __N] = std::array::from_fn(|i| Dual::var(__vals[i], i));
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::jacobian;
@@ -36,5 +44,17 @@ mod tests {
         assert!((jac[(0, 1)] - 1.0).abs() < 1e-12); // df1/dy = 1
         assert!((jac[(1, 0)] - 3.0 * 6.0_f64.cos()).abs() < 1e-12); // df2/dx
         assert!((jac[(1, 1)] - 2.0 * 6.0_f64.cos()).abs() < 1e-12); // df2/dy
+    }
+
+    #[test]
+    fn seed_creates_correctly_seeded_duals() {
+        // f(x, y) = x*y + sin(x) at (x, y) = (2, 3)
+        // df/dx = y + cos(x), df/dy = x
+        seed!(x = 2.0, y = 3.0);
+        let f = x * y + x.sin();
+
+        assert!((f.value() - (2.0 * 3.0 + 2.0_f64.sin())).abs() < 1e-12);
+        assert!((f.grad()[0] - (3.0 + 2.0_f64.cos())).abs() < 1e-12);
+        assert!((f.grad()[1] - 2.0).abs() < 1e-12);
     }
 }
