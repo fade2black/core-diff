@@ -13,11 +13,27 @@ pub fn jacobian<const N: usize, const M: usize>(
     (value, jac)
 }
 
+#[macro_export]
 macro_rules! seed {
     ($($name:ident = $val:expr),*) => {
         const __N: usize = [ $(stringify!($name)),* ].len();
         let __vals = [ $($val),* ];
-        let [ $($name),* ]: [Dual<f64, __N>; __N] = std::array::from_fn(|i| Dual::var(__vals[i], i));
+        let [ $($name),* ]: [$crate::dual::Dual<f64, __N>; __N] =
+            std::array::from_fn(|i| $crate::dual::Dual::var(__vals[i], i));
+    };
+}
+
+#[macro_export]
+macro_rules! jacobian_fn {
+    ($name:ident ( $( $var:ident ),* $(,)? ) -> { $( $expr:expr ),* $(,)? }) => {
+        fn $name( $( $var: f64 ),* ) -> (
+            nalgebra::SVector<f64, { [ $(stringify!($var)),* ].len() }>,
+            nalgebra::SMatrix<f64, { [ $(stringify!($expr)),* ].len() }, { [ $(stringify!($var)),* ].len() }>,
+        ) {
+            $crate::seed!( $( $var = $var ),* );
+            let __outputs = [ $( $expr ),* ];
+            $crate::jacobian::jacobian(__outputs)
+        }
     };
 }
 
