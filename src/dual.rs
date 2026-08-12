@@ -98,6 +98,35 @@ where
     }
 }
 
+macro_rules! impl_scalar_ops {
+    ($($trait_name:ident, $method:ident, $op:tt);* $(;)?) => {
+        $(
+            impl<const N: usize> $trait_name<f64> for Dual<f64, N> {
+                type Output = Self;
+
+                fn $method(self, rhs: f64) -> Self::Output {
+                    self $op Self::constant(rhs)
+                }
+            }
+
+            impl<const N: usize> $trait_name<Dual<f64, N>> for f64 {
+                type Output = Dual<f64, N>;
+
+                fn $method(self, rhs: Dual<f64, N>) -> Self::Output {
+                    Dual::constant(self) $op rhs
+                }
+            }
+        )*
+    };
+}
+
+impl_scalar_ops!(
+    Add, add, +;
+    Sub, sub, -;
+    Mul, mul, *;
+    Div, div, /;
+);
+
 impl<const N: usize> Dual<f64, N> {
     /// A constant: grad = 0
     pub fn constant(value: f64) -> Self {
@@ -153,6 +182,50 @@ impl<const N: usize> Dual<f64, N> {
             grad: std::array::from_fn(|i| self.grad[i] * deriv),
         }
     }
+
+    pub fn sqrt(self) -> Self {
+        let v = self.value.sqrt();
+        let deriv = 0.5 / v;
+        Self {
+            value: v,
+            grad: std::array::from_fn(|i| self.grad[i] * deriv),
+        }
+    }
+
+    pub fn tan(self) -> Self {
+        let cos_v = self.value.cos();
+        let deriv = 1.0 / (cos_v * cos_v);
+        Self {
+            value: self.value.tan(),
+            grad: std::array::from_fn(|i| self.grad[i] * deriv),
+        }
+    }
+
+    pub fn asin(self) -> Self {
+        let deriv = 1.0 / (1.0 - self.value * self.value).sqrt();
+        Self {
+            value: self.value.asin(),
+            grad: std::array::from_fn(|i| self.grad[i] * deriv),
+        }
+    }
+
+    pub fn acos(self) -> Self {
+        let deriv = -1.0 / (1.0 - self.value * self.value).sqrt();
+        Self {
+            value: self.value.acos(),
+            grad: std::array::from_fn(|i| self.grad[i] * deriv),
+        }
+    }
+
+    pub fn atan2(self, other: Self) -> Self {
+        let denom = self.value * self.value + other.value * other.value;
+        Self {
+            value: self.value.atan2(other.value),
+            grad: std::array::from_fn(|i| {
+                (other.value * self.grad[i] - self.value * other.grad[i]) / denom
+            }),
+        }
+    }
 }
 
 /// Free-function form of `Dual::sin`, so expressions like `sin(x * y)` resolve
@@ -180,6 +253,31 @@ pub fn ln<const N: usize>(d: Dual<f64, N>) -> Dual<f64, N> {
 #[inline]
 pub fn powf<const N: usize>(d: Dual<f64, N>, n: f64) -> Dual<f64, N> {
     d.powf(n)
+}
+
+#[inline]
+pub fn sqrt<const N: usize>(d: Dual<f64, N>) -> Dual<f64, N> {
+    d.sqrt()
+}
+
+#[inline]
+pub fn tan<const N: usize>(d: Dual<f64, N>) -> Dual<f64, N> {
+    d.tan()
+}
+
+#[inline]
+pub fn asin<const N: usize>(d: Dual<f64, N>) -> Dual<f64, N> {
+    d.asin()
+}
+
+#[inline]
+pub fn acos<const N: usize>(d: Dual<f64, N>) -> Dual<f64, N> {
+    d.acos()
+}
+
+#[inline]
+pub fn atan2<const N: usize>(y: Dual<f64, N>, x: Dual<f64, N>) -> Dual<f64, N> {
+    y.atan2(x)
 }
 
 #[cfg(test)]
@@ -313,5 +411,90 @@ mod tests {
         assert!((f.value() - (2.0 * 3.0 + 2.0_f64.sin())).abs() < 1e-12);
         assert!((f.grad()[0] - (3.0 + 2.0_f64.cos())).abs() < 1e-12);
         assert!((f.grad()[1] - 2.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_sqrt() {
+        let x: Dual<f64, 1> = Dual::var(4.0, 0);
+        let y = x.sqrt();
+        assert!((y.value() - 2.0).abs() < 1e-12);
+        assert!((y.grad()[0] - 0.25).abs() < 1e-12); // derivative = 1/(2*sqrt(x)) = 0.25
+    }
+
+    #[test]
+    fn test_tan() {
+        let x: Dual<f64, 1> = Dual::var(0.5, 0);
+        let y = x.tan();
+        assert!((y.value() - 0.5_f64.tan()).abs() < 1e-12);
+        let expected_deriv = 1.0 / (0.5_f64.cos() * 0.5_f64.cos());
+        assert!((y.grad()[0] - expected_deriv).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_asin() {
+        let x: Dual<f64, 1> = Dual::var(0.5, 0);
+        let y = x.asin();
+        assert!((y.value() - 0.5_f64.asin()).abs() < 1e-12);
+        let expected_deriv = 1.0 / (1.0_f64 - 0.25).sqrt();
+        assert!((y.grad()[0] - expected_deriv).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_acos() {
+        let x: Dual<f64, 1> = Dual::var(0.5, 0);
+        let y = x.acos();
+        assert!((y.value() - 0.5_f64.acos()).abs() < 1e-12);
+        let expected_deriv = -1.0 / (1.0_f64 - 0.25).sqrt();
+        assert!((y.grad()[0] - expected_deriv).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_atan2() {
+        // f(y, x) = atan2(y, x) at (y, x) = (3, 4)
+        // df/dy = x/(x^2+y^2), df/dx = -y/(x^2+y^2)
+        let y: Dual<f64, 2> = Dual::var(3.0, 0);
+        let x: Dual<f64, 2> = Dual::var(4.0, 1);
+        let f = y.atan2(x);
+
+        assert!((f.value() - 3.0_f64.atan2(4.0)).abs() < 1e-12);
+        assert!((f.grad()[0] - 4.0 / 25.0).abs() < 1e-12);
+        assert!((f.grad()[1] - (-3.0 / 25.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_scalar_ops() {
+        let x: Dual<f64, 1> = Dual::var(2.0, 0);
+
+        let a = x + 1.0;
+        assert_eq!(a.value(), 3.0);
+        assert_eq!(a.grad(), [1.0]);
+
+        let b = 1.0 + x;
+        assert_eq!(b.value(), 3.0);
+        assert_eq!(b.grad(), [1.0]);
+
+        let c = x * 3.0;
+        assert_eq!(c.value(), 6.0);
+        assert_eq!(c.grad(), [3.0]);
+
+        let d = 3.0 * x;
+        assert_eq!(d.value(), 6.0);
+        assert_eq!(d.grad(), [3.0]);
+
+        let e = x - 0.5;
+        assert_eq!(e.value(), 1.5);
+        assert_eq!(e.grad(), [1.0]);
+
+        let f = 10.0 - x;
+        assert_eq!(f.value(), 8.0);
+        assert_eq!(f.grad(), [-1.0]); // d/dx(c - x) = -1
+
+        let g = x / 2.0;
+        assert_eq!(g.value(), 1.0);
+        assert_eq!(g.grad(), [0.5]);
+
+        let h = 8.0 / x;
+        assert_eq!(h.value(), 4.0);
+        assert_eq!(h.grad(), [-2.0]); // d/dx(c/x) = -c/x^2 = -8/4 = -2
     }
 }
