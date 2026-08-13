@@ -1,3 +1,4 @@
+use num_traits::Float;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -127,19 +128,19 @@ impl_scalar_ops!(
     Div, div, /;
 );
 
-impl<const N: usize> Dual<f64, N> {
+impl<T: Float, const N: usize> Dual<T, N> {
     /// A constant: grad = 0
-    pub fn constant(value: f64) -> Self {
+    pub fn constant(value: T) -> Self {
         Self {
             value,
-            grad: [0.0; N],
+            grad: [T::zero(); N],
         }
     }
 
     /// A variable: partial derivative w.r.t. itself is 1 at `index`, 0 elsewhere.
-    pub fn var(value: f64, index: usize) -> Self {
-        let mut grad = [0.0; N];
-        grad[index] = 1.0;
+    pub fn var(value: T, index: usize) -> Self {
+        let mut grad = [T::zero(); N];
+        grad[index] = T::one();
         Self { value, grad }
     }
 
@@ -168,15 +169,15 @@ impl<const N: usize> Dual<f64, N> {
     }
 
     pub fn ln(self) -> Self {
-        let inv_v = 1.0 / self.value;
+        let inv_v = T::one() / self.value;
         Self {
             value: self.value.ln(),
             grad: std::array::from_fn(|i| self.grad[i] * inv_v),
         }
     }
 
-    pub fn powf(self, n: f64) -> Self {
-        let deriv = n * self.value.powf(n - 1.0);
+    pub fn powf(self, n: T) -> Self {
+        let deriv = n * self.value.powf(n - T::one());
         Self {
             value: self.value.powf(n),
             grad: std::array::from_fn(|i| self.grad[i] * deriv),
@@ -185,7 +186,7 @@ impl<const N: usize> Dual<f64, N> {
 
     pub fn sqrt(self) -> Self {
         let v = self.value.sqrt();
-        let deriv = 0.5 / v;
+        let deriv = T::one() / (v + v);
         Self {
             value: v,
             grad: std::array::from_fn(|i| self.grad[i] * deriv),
@@ -194,7 +195,7 @@ impl<const N: usize> Dual<f64, N> {
 
     pub fn tan(self) -> Self {
         let cos_v = self.value.cos();
-        let deriv = 1.0 / (cos_v * cos_v);
+        let deriv = T::one() / (cos_v * cos_v);
         Self {
             value: self.value.tan(),
             grad: std::array::from_fn(|i| self.grad[i] * deriv),
@@ -202,7 +203,7 @@ impl<const N: usize> Dual<f64, N> {
     }
 
     pub fn asin(self) -> Self {
-        let deriv = 1.0 / (1.0 - self.value * self.value).sqrt();
+        let deriv = T::one() / (T::one() - self.value * self.value).sqrt();
         Self {
             value: self.value.asin(),
             grad: std::array::from_fn(|i| self.grad[i] * deriv),
@@ -210,7 +211,7 @@ impl<const N: usize> Dual<f64, N> {
     }
 
     pub fn acos(self) -> Self {
-        let deriv = -1.0 / (1.0 - self.value * self.value).sqrt();
+        let deriv = -T::one() / (T::one() - self.value * self.value).sqrt();
         Self {
             value: self.value.acos(),
             grad: std::array::from_fn(|i| self.grad[i] * deriv),
@@ -231,52 +232,52 @@ impl<const N: usize> Dual<f64, N> {
 /// Free-function form of `Dual::sin`, so expressions like `sin(x * y)` resolve
 /// without needing a macro to rewrite them into method calls.
 #[inline]
-pub fn sin<const N: usize>(d: Dual<f64, N>) -> Dual<f64, N> {
+pub fn sin<T: Float, const N: usize>(d: Dual<T, N>) -> Dual<T, N> {
     d.sin()
 }
 
 #[inline]
-pub fn cos<const N: usize>(d: Dual<f64, N>) -> Dual<f64, N> {
+pub fn cos<T: Float, const N: usize>(d: Dual<T, N>) -> Dual<T, N> {
     d.cos()
 }
 
 #[inline]
-pub fn exp<const N: usize>(d: Dual<f64, N>) -> Dual<f64, N> {
+pub fn exp<T: Float, const N: usize>(d: Dual<T, N>) -> Dual<T, N> {
     d.exp()
 }
 
 #[inline]
-pub fn ln<const N: usize>(d: Dual<f64, N>) -> Dual<f64, N> {
+pub fn ln<T: Float, const N: usize>(d: Dual<T, N>) -> Dual<T, N> {
     d.ln()
 }
 
 #[inline]
-pub fn powf<const N: usize>(d: Dual<f64, N>, n: f64) -> Dual<f64, N> {
+pub fn powf<T: Float, const N: usize>(d: Dual<T, N>, n: T) -> Dual<T, N> {
     d.powf(n)
 }
 
 #[inline]
-pub fn sqrt<const N: usize>(d: Dual<f64, N>) -> Dual<f64, N> {
+pub fn sqrt<T: Float, const N: usize>(d: Dual<T, N>) -> Dual<T, N> {
     d.sqrt()
 }
 
 #[inline]
-pub fn tan<const N: usize>(d: Dual<f64, N>) -> Dual<f64, N> {
+pub fn tan<T: Float, const N: usize>(d: Dual<T, N>) -> Dual<T, N> {
     d.tan()
 }
 
 #[inline]
-pub fn asin<const N: usize>(d: Dual<f64, N>) -> Dual<f64, N> {
+pub fn asin<T: Float, const N: usize>(d: Dual<T, N>) -> Dual<T, N> {
     d.asin()
 }
 
 #[inline]
-pub fn acos<const N: usize>(d: Dual<f64, N>) -> Dual<f64, N> {
+pub fn acos<T: Float, const N: usize>(d: Dual<T, N>) -> Dual<T, N> {
     d.acos()
 }
 
 #[inline]
-pub fn atan2<const N: usize>(y: Dual<f64, N>, x: Dual<f64, N>) -> Dual<f64, N> {
+pub fn atan2<T: Float, const N: usize>(y: Dual<T, N>, x: Dual<T, N>) -> Dual<T, N> {
     y.atan2(x)
 }
 
